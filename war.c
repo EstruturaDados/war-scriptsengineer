@@ -15,12 +15,29 @@
 // ============================================================================
 
 // Inclusão das bibliotecas padrão necessárias para entrada/saída, alocação de memória, manipulação de strings e tempo.
+#include <stdio.h>
+#include <string.h>
+#include <locale.h>
 
-// --- Constantes Globais ---
-// Definem valores fixos para o número de territórios, missões e tamanho máximo de strings, facilitando a manutenção.
+/*
+ * Estrutura Territorio:
+ * Agrupa informações de um território: nome, cor do exército e número de tropas.
+ * nome tem espaço para 29 caracteres mais o terminador '\0' (total 30).
+ * cor tem espaço para 9 caracteres mais '\0' (total 10).
+ */
+typedef struct {
+    char nome[30];
+    char cor[10];
+    int tropas;
+} Territorio;
 
-// --- Estrutura de Dados ---
-// Define a estrutura para um território, contendo seu nome, a cor do exército que o domina e o número de tropas.
+#define NUM_TERRITORIOS 5
+
+/* Limpa o buffer de entrada (stdin) para evitar problemas entre leituras */
+void limparBufferEntrada(void) {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) { }
+}
 
 // --- Protótipos das Funções ---
 // Declarações antecipadas de todas as funções que serão usadas no programa, organizadas por categoria.
@@ -31,25 +48,54 @@
 
 // --- Função Principal (main) ---
 // Função principal que orquestra o fluxo do jogo, chamando as outras funções em ordem.
-int main() {
-    // 1. Configuração Inicial (Setup):
-    // - Define o locale para português.
-    // - Inicializa a semente para geração de números aleatórios com base no tempo atual.
-    // - Aloca a memória para o mapa do mundo e verifica se a alocação foi bem-sucedida.
-    // - Preenche os territórios com seus dados iniciais (tropas, donos, etc.).
-    // - Define a cor do jogador e sorteia sua missão secreta.
+int main(void) {
+    /* Define locale para mensagens/acentuação em português (opcional) */
+    setlocale(LC_ALL, "pt_BR.UTF-8");
 
-    // 2. Laço Principal do Jogo (Game Loop):
-    // - Roda em um loop 'do-while' que continua até o jogador sair (opção 0) ou vencer.
-    // - A cada iteração, exibe o mapa, a missão e o menu de ações.
-    // - Lê a escolha do jogador e usa um 'switch' para chamar a função apropriada:
-    //   - Opção 1: Inicia a fase de ataque.
-    //   - Opção 2: Verifica se a condição de vitória foi alcançada e informa o jogador.
-    //   - Opção 0: Encerra o jogo.
-    // - Pausa a execução para que o jogador possa ler os resultados antes da próxima rodada.
+    Territorio mapa[NUM_TERRITORIOS];
 
-    // 3. Limpeza:
-    // - Ao final do jogo, libera a memória alocada para o mapa para evitar vazamentos de memória.
+    printf("Cadastro de %d territórios\n", NUM_TERRITORIOS);
+    printf("OBS: use nomes e cores sem espaços (ex: Territorio1, Azul).\n\n");
+
+    /* Entrada dos dados: solicita nome, cor e tropas para cada território */
+    for (int i = 0; i < NUM_TERRITORIOS; ++i) {
+        printf("Território %d\n", i + 1);
+
+        printf("  Nome: ");
+        /* scanf usado conforme instrução; limita tamanho para evitar overflow */
+        if (scanf("%29s", mapa[i].nome) != 1) {
+            printf("Erro ao ler o nome.\n");
+            return 1;
+        }
+
+        printf("  Cor do exército: ");
+        if (scanf("%9s", mapa[i].cor) != 1) {
+            printf("Erro ao ler a cor.\n");
+            return 1;
+        }
+
+        printf("  Número de tropas: ");
+        if (scanf("%d", &mapa[i].tropas) != 1) {
+            printf("Erro ao ler o número de tropas.\n");
+            return 1;
+        }
+
+        /* Limpa qualquer caractere restante na linha antes da próxima iteração */
+        limparBufferEntrada();
+
+        printf("\n");
+    }
+
+    /* Exibição: mostra todos os territórios cadastrados em formato tabulado */
+    printf("=== Territórios cadastrados ===\n");
+    printf("%-3s %-29s %-9s %s\n", "ID", "NOME", "COR", "TROPAS");
+    for (int i = 0; i < NUM_TERRITORIOS; ++i) {
+        printf("%-3d %-29s %-9s %d\n",
+               i + 1,
+               mapa[i].nome,
+               mapa[i].cor,
+               mapa[i].tropas);
+    }
 
     return 0;
 }
