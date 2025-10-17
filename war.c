@@ -53,6 +53,93 @@ void liberarMemoria(Territorio* mapa) {
     free(mapa);
 }
 
+/* ------------------------------------------------------------
+ * SISTEMA DE MISSÕES
+ * - vetor de descrições de missões
+ * - funções para atribuir, exibir e verificar missões
+ * - armazenamento dinâmico da missão de cada jogador
+ * ------------------------------------------------------------ */
+
+/* Vetor com descrições possíveis de missões (pelo menos 5) */
+static const char* missoesDisponiveis[] = {
+    "Conquistar 3 territorios seguidos",
+    "Eliminar todas as tropas da cor Vermelha",
+    "Ter pelo menos 10 tropas em um territorio",
+    "Controlar 4 territorios no total",
+    "Reduzir tropas de um inimigo a 0"
+};
+static const int TOTAL_MISSOES = sizeof(missoesDisponiveis) / sizeof(missoesDisponiveis[0]);
+
+/* Atribui aleatoriamente uma missão (copia a string para destino) */
+void atribuirMissao(char* destino, char* missoes[], int totalMissoes) {
+    (void) missoes; /* parâmetro disponível para compatibilidade com assinatura */
+    if (!destino || totalMissoes <= 0) return;
+    int idx = rand() % TOTAL_MISSOES;
+    strcpy(destino, missoesDisponiveis[idx]);
+}
+
+/* Exibe a missão (passada por valor - const) */
+void exibirMissao(const char* missao) {
+    if (!missao) return;
+    printf("\n--- MISSÃO Atribuída ---\n%s\n-----------------------\n\n", missao);
+}
+
+/* Função simples de verificação de missão.
+   Retorna 1 caso a missão esteja cumprida, 0 caso contrário.
+   Implementa lógicas iniciais para as 5 missões definidas.
+*/
+int verificarMissao(const char* missao, Territorio* mapa, int tamanho) {
+    if (!missao || !mapa || tamanho <= 0) return 0;
+
+    /* Missão: Conquistar 3 territorios seguidos
+       Verifica se existe uma sequência de 3 territorios com a mesma cor
+    */
+    if (strcmp(missao, missoesDisponiveis[0]) == 0) {
+        for (int i = 0; i <= tamanho - 3; ++i) {
+            if (strcmp(mapa[i].cor, mapa[i+1].cor) == 0 && strcmp(mapa[i].cor, mapa[i+2].cor) == 0) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    /* Missão: Eliminar todas as tropas da cor Vermelha */
+    if (strcmp(missao, missoesDisponiveis[1]) == 0) {
+        for (int i = 0; i < tamanho; ++i) {
+            if (strcmp(mapa[i].cor, "Vermelha") == 0 && mapa[i].tropas > 0) return 0;
+        }
+        return 1;
+    }
+
+    /* Missão: Ter pelo menos 10 tropas em um territorio */
+    if (strcmp(missao, missoesDisponiveis[2]) == 0) {
+        for (int i = 0; i < tamanho; ++i) {
+            if (mapa[i].tropas >= 10) return 1;
+        }
+        return 0;
+    }
+
+    /* Missão: Controlar 4 territorios no total */
+    if (strcmp(missao, missoesDisponiveis[3]) == 0) {
+        /* Como não temos jogadores separados por cor no modelo atual, considera-se
+           que controlar = quantidade de territorios da mesma cor que a primeira
+           do mapa (apenas lógica inicial para teste).*/
+        const char* cor_ref = mapa[0].cor;
+        int cont = 0;
+        for (int i = 0; i < tamanho; ++i) if (strcmp(mapa[i].cor, cor_ref) == 0) cont++;
+        return (cont >= 4) ? 1 : 0;
+    }
+
+    /* Missão: Reduzir tropas de um inimigo a 0 */
+    if (strcmp(missao, missoesDisponiveis[4]) == 0) {
+        for (int i = 0; i < tamanho; ++i) if (mapa[i].tropas == 0) return 1;
+        return 0;
+    }
+
+    return 0; /* padrão */
+}
+
+
 /* Exibe o mapa atual (apenas leitura - usa const) */
 void exibirMapa(const Territorio* mapa, int n) {
     printf("\n=== Territórios cadastrados ===\n");
@@ -187,6 +274,32 @@ int main(void) {
     cadastrarTerritorios(mapa, num);
     exibirMapa(mapa, num);
 
+    /* --- SISTEMA DE MISSÕES PARA JOGADORES --- */
+    const int jogadores = 2; /* implementa 2 jogadores para demonstrar */
+    char** missoesJogador = (char**) malloc(sizeof(char*) * jogadores);
+    if (!missoesJogador) {
+        fprintf(stderr, "Erro: falha na alocação das missões dos jogadores.\n");
+        liberarMemoria(mapa);
+        return 1;
+    }
+
+    /* aloca espaço para cada missão e atribui aleatoriamente */
+    for (int p = 0; p < jogadores; ++p) {
+        missoesJogador[p] = (char*) malloc(128); /* espaço suficiente para a descrição */
+        if (!missoesJogador[p]) {
+            fprintf(stderr, "Erro: falha na alocação da missão do jogador %d.\n", p+1);
+            /* libera previamente alocado */
+            for (int q = 0; q < p; ++q) free(missoesJogador[q]);
+            free(missoesJogador);
+            liberarMemoria(mapa);
+            return 1;
+        }
+        /* atribui missão (usa vetor interno de missoesDisponiveis) */
+        atribuirMissao(missoesJogador[p], NULL, TOTAL_MISSOES);
+        printf("Jogador %d: ", p+1);
+        exibirMissao(missoesJogador[p]); /* exibe apenas uma vez no início */
+    }
+
     /* Loop principal de interação para executar ataques até o usuário sair */
     while (1) {
         int opc = exibirMenuPrincipal();
@@ -212,6 +325,19 @@ int main(void) {
             atacar(atacante, defensor);
 
             exibirMapa(mapa, num);
+
+            /* Verifica missões silenciosamente após cada ataque */
+            for (int p = 0; p < jogadores; ++p) {
+                if (verificarMissao(missoesJogador[p], mapa, num)) {
+                    printf("\n***** Jogador %d cumpriu a missão e vence o jogo! *****\n", p+1);
+                    /* libera memória e sai */
+                    for (int q = 0; q < jogadores; ++q) free(missoesJogador[q]);
+                    free(missoesJogador);
+                    liberarMemoria(mapa);
+                    return 0;
+                }
+            }
+
         } else if (opc == 3) {
             printf("Saindo. Liberando memória e encerrando.\n");
             break;
@@ -220,6 +346,9 @@ int main(void) {
         }
     }
 
+    /* libera missões e mapa */
+    for (int q = 0; q < jogadores; ++q) free(missoesJogador[q]);
+    free(missoesJogador);
     liberarMemoria(mapa);
     return 0;
 }
